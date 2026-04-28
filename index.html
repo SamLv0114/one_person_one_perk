@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>一人一山 · 23座名山路线图</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif; background: #111; color: #fff; }
+
+  #app { width: 100vw; height: 100vh; position: relative; overflow: hidden; }
+  #main-svg { width: 100%; height: 100%; display: block; }
+
+  #zoom-btns {
+    position: absolute; top: 12px; right: 12px;
+    display: flex; flex-direction: column; gap: 6px; z-index: 10;
+  }
+  .zbtn {
+    width: 36px; height: 36px; border-radius: 8px;
+    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(20,20,20,0.85);
+    color: #fff; font-size: 20px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(6px);
+    transition: background 0.15s;
+  }
+  .zbtn:hover { background: rgba(60,60,60,0.9); }
+
+  #title-badge {
+    position: absolute; top: 12px; left: 12px; z-index: 10;
+    background: rgba(20,20,20,0.85); backdrop-filter: blur(6px);
+    border: 1px solid rgba(255,255,255,0.15); border-radius: 10px;
+    padding: 8px 14px;
+  }
+  #title-badge h1 { font-size: 15px; font-weight: 600; letter-spacing: 2px; }
+  #title-badge p  { font-size: 11px; color: rgba(255,255,255,0.5); margin-top: 2px; }
+
+  #hint {
+    position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+    font-size: 11px; color: rgba(255,255,255,0.4);
+    background: rgba(20,20,20,0.7); padding: 4px 12px;
+    border-radius: 20px; pointer-events: none; white-space: nowrap;
+    backdrop-filter: blur(4px);
+  }
+
+  #tt {
+    display: none; position: absolute;
+    background: rgba(18,18,18,0.95); backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.15); border-radius: 10px;
+    padding: 10px 14px; pointer-events: none; z-index: 20;
+    min-width: 160px; max-width: 220px;
+  }
+  #tt .tt-name { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+  #tt .tt-sub  { font-size: 11px; color: rgba(255,255,255,0.5); }
+  #tt .tt-diff { display: inline-block; margin-top: 5px; font-size: 10px; padding: 2px 8px; border-radius: 6px; }
+
+  #detail {
+    display: none; position: absolute; top: 0; left: 0;
+    width: 100%; height: 100%; z-index: 30;
+    background: #111; overflow-y: auto; padding: 20px;
+  }
+  #back-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 13px; color: #60a5fa; cursor: pointer;
+    border: 1px solid rgba(96,165,250,0.3); border-radius: 8px;
+    padding: 6px 12px; background: rgba(96,165,250,0.08);
+    margin-bottom: 18px;
+  }
+  .d-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+  .d-icon {
+    width: 42px; height: 42px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; font-weight: 700; flex-shrink: 0;
+  }
+  .d-title { font-size: 20px; font-weight: 700; }
+  .d-sub   { font-size: 12px; color: rgba(255,255,255,0.45); margin-top: 2px; }
+  .d-grid  { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 16px; }
+  .d-card  { background: rgba(255,255,255,0.06); border-radius: 8px; padding: 10px; }
+  .d-card-label { font-size: 10px; color: rgba(255,255,255,0.35); margin-bottom: 3px; }
+  .d-card-val   { font-size: 14px; font-weight: 600; }
+  .d-section-title { font-size: 13px; font-weight: 600; margin-bottom: 8px; color: rgba(255,255,255,0.7); }
+  .d-tip {
+    font-size: 13px; line-height: 1.7; color: rgba(255,255,255,0.65);
+    padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,0.07);
+  }
+  .d-tip:last-child { border-bottom: none; }
+
+  .legend {
+    position: absolute; bottom: 40px; left: 12px; z-index: 10;
+    background: rgba(20,20,20,0.85); backdrop-filter: blur(6px);
+    border: 1px solid rgba(255,255,255,0.12); border-radius: 10px;
+    padding: 10px 14px;
+  }
+  .leg-row { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+  .leg-item { display: flex; align-items: center; gap: 6px; font-size: 10px; color: rgba(255,255,255,0.55); }
+  .leg-dot  { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .leg-line { width: 20px; height: 2px; flex-shrink: 0; }
+  .leg-line.dash { background: repeating-linear-gradient(90deg,#D85A30 0,#D85A30 4px,transparent 4px,transparent 7px); }
+</style>
+</head>
+<body>
+<div id="app">
+  <svg id="main-svg"></svg>
+
+  <div id="title-badge">
+    <h1>一人一山</h1>
+    <p>23座名山 · 2025暑假</p>
+  </div>
+
+  <div id="zoom-btns">
+    <button class="zbtn" onclick="zoomBy(1.5)">+</button>
+    <button class="zbtn" onclick="zoomBy(1/1.5)">−</button>
+    <button class="zbtn" style="font-size:11px" onclick="resetZoom()">重置</button>
+  </div>
+
+  <div id="hint">滚轮缩放 · 拖拽平移 · 点击节点查看攻略</div>
+  <div id="tt"></div>
+  <div id="detail"></div>
+
+  <div class="legend">
+    <div class="leg-row">
+      <div class="leg-item"><div class="leg-dot" style="background:#185FA5"></div>华北</div>
+      <div class="leg-item"><div class="leg-dot" style="background:#854F0B"></div>华中</div>
+      <div class="leg-item"><div class="leg-dot" style="background:#0F6E56"></div>华东</div>
+      <div class="leg-item"><div class="leg-dot" style="background:#993C1D"></div>华中南</div>
+      <div class="leg-item"><div class="leg-dot" style="background:#534AB7"></div>西南</div>
+      <div class="leg-item"><div class="leg-line"></div>高铁/巴士</div>
+      <div class="leg-item"><div class="leg-line dash"></div>飞机</div>
+    </div>
+  </div>
+</div>
+
+<script>
+const M = [
+  {n:1,  name:'泰山',    prov:'山东', lon:117.1,lat:36.2, seg:'华北',  c:'#185FA5', days:'D1-2',  alt:'1545m', diff:'轻松',
+   tips:['入境直飞济南，泰安站下车','D1傍晚红门夜爬约5h登顶','D2玉皇顶看日出，后石坞路下山','门票约¥115，索道¥200往返']},
+  {n:2,  name:'崂山',    prov:'山东', lon:120.6,lat:36.2, seg:'华北',  c:'#185FA5', days:'D3-4',  alt:'1133m', diff:'轻松',
+   tips:['海上第一仙山，道教圣地','巨峰景区登顶，俯瞰青岛与大海','高铁：泰安→青岛约2h']},
+  {n:3,  name:'嵩山',    prov:'河南', lon:113.0,lat:34.5, seg:'华北',  c:'#185FA5', days:'D5-6',  alt:'1491m', diff:'轻松',
+   tips:['少林寺+嵩山一天可搞定','武僧表演11:30/15:30各一场','高铁：青岛→郑州约3.5h，再转巴士']},
+  {n:4,  name:'华山',    prov:'陕西', lon:110.1,lat:34.5, seg:'华北',  c:'#185FA5', days:'D7-9',  alt:'2155m', diff:'高难',
+   tips:['推荐夜爬看日出，约6h','长空栈道最险体验，需提前排队','高铁：郑州→西安约2h，再到华山北30min']},
+  {n:5,  name:'太白山',  prov:'陕西', lon:107.8,lat:34.0, seg:'华北',  c:'#185FA5', days:'D10-12',alt:'3771m', diff:'高难',
+   tips:['秦岭最高峰3771m','全程约30km，需住山顶营地2晚','高差2000m，备足食物和保暖衣物','公交：宝鸡→眉县→汤峪口约2h']},
+  {n:6,  name:'恒山',    prov:'山西', lon:113.7,lat:39.7, seg:'华北',  c:'#185FA5', days:'D13-14',alt:'2017m', diff:'轻松',
+   tips:['悬空寺¥130（北魏凌空建筑）','恒山天峰岭，道观群','高铁：宝鸡→太原→大同约4h']},
+  {n:7,  name:'五台山',  prov:'山西', lon:113.6,lat:39.0, seg:'华北',  c:'#185FA5', days:'D15-17',alt:'3058m', diff:'中等',
+   tips:['D1显通寺、塔院寺、菩萨顶','D2大朝台北台叶斗峰（3058m）','D3黛螺顶1080级台阶朝圣步道','班车：大同→五台山约3h']},
+  {n:8,  name:'武当山',  prov:'湖北', lon:111.0,lat:32.4, seg:'华中',  c:'#854F0B', days:'D18-19',alt:'1612m', diff:'轻松',
+   tips:['D1太子坡→紫霄宫→南岩宫','D2金顶天柱峰，明代铜铸金殿','高铁：忻州→郑州→十堰约5h']},
+  {n:9,  name:'庐山',    prov:'江西', lon:116.0,lat:29.6, seg:'华中',  c:'#854F0B', days:'D20-21',alt:'1474m', diff:'轻松',
+   tips:['三叠泉瀑布（落差155m，步行2h往返）','含鄱口看日出，牯岭街漫步','高铁：十堰→九江约3h']},
+  {n:10, name:'九华山',  prov:'安徽', lon:117.8,lat:30.4, seg:'华中',  c:'#854F0B', days:'D22-23',alt:'1342m', diff:'轻松',
+   tips:['肉身宝殿（金地藏真身）','天台正顶索道可达，百岁宫','高铁：九江→铜陵→池州→景区巴士']},
+  {n:11, name:'黄山',    prov:'安徽', lon:118.2,lat:30.1, seg:'华中',  c:'#854F0B', days:'D24-26',alt:'1864m', diff:'中等',
+   tips:['西海大峡谷环线最精华（4-5h）','山顶住宿看云海日出（提前1个月订！）','门票¥190，索道¥80-140单程']},
+  {n:12, name:'天柱山',  prov:'安徽', lon:116.5,lat:30.7, seg:'华中',  c:'#854F0B', days:'D27-28',alt:'1489m', diff:'中等',
+   tips:['花岗岩峰丛，奇峰险石','主峰天柱峰，索道+步道结合','高铁：黄山北→合肥→潜山约2h']},
+  {n:13, name:'普陀山',  prov:'浙江', lon:122.4,lat:30.0, seg:'华东',  c:'#0F6E56', days:'D29-30',alt:'291m',  diff:'轻松',
+   tips:['普济寺→法雨寺→慧济寺（三寺一日）','南海观音像，不肯去观音院','渡轮：宁波→普陀约2h，门票¥160']},
+  {n:14, name:'天台山',  prov:'浙江', lon:121.0,lat:29.1, seg:'华东',  c:'#0F6E56', days:'D31-32',alt:'1098m', diff:'轻松',
+   tips:['国清寺（佛教天台宗发源地）','华顶国家森林公园，云锦杜鹃','高铁：宁波→天台约40min']},
+  {n:15, name:'雁荡山',  prov:'浙江', lon:121.1,lat:28.4, seg:'华东',  c:'#0F6E56', days:'D33-34',alt:'1150m', diff:'中等',
+   tips:['大龙湫瀑布（186m，华东第一瀑）','灵峰夜景奇石变幻，夜游独特','高铁：台州→温州→雁荡山约1h']},
+  {n:16, name:'武夷山',  prov:'福建', lon:118.0,lat:27.8, seg:'华东',  c:'#0F6E56', days:'D35-37',alt:'2158m', diff:'中等',
+   tips:['九曲溪竹筏漂流（¥120/人，需预约）','天游峰俯瞰全貌，大红袍母树','高铁：温州→武夷山北约2h']},
+  {n:17, name:'武功山',  prov:'江西', lon:114.2,lat:27.5, seg:'华东',  c:'#0F6E56', days:'D38-40',alt:'1918m', diff:'中等',
+   tips:['高山草甸（徒步圈顶流）','金顶云海日出，帐篷营地氛围极好','建议走羊狮幕→金顶2日穿越','高铁：武夷山→吉安→萍乡约3h']},
+  {n:18, name:'衡山',    prov:'湖南', lon:112.7,lat:27.3, seg:'华中南', c:'#993C1D', days:'D41-42',alt:'1300m', diff:'轻松',
+   tips:['南岳大庙（佛道共处），免门票','祝融峰主峰，索道¥80单程','高铁：萍乡→衡阳约1.5h']},
+  {n:19, name:'张家界',  prov:'湖南', lon:110.5,lat:29.1, seg:'华中南', c:'#993C1D', days:'D43-45',alt:'1260m', diff:'轻松',
+   tips:['袁家界（哈利路亚山）+金鞭溪8km','天门山：世界最长观光索道+玻璃栈道','高铁：衡阳→张家界约2h，暑假6点前入园']},
+  {n:20, name:'峨眉山',  prov:'四川', lon:103.5,lat:29.6, seg:'华中南', c:'#993C1D', days:'D46-49',alt:'3099m', diff:'中等',
+   tips:['金顶看日出佛光（云海彩色光圈）','猴子会抢东西！背包拉好拉链','高铁：张家界→成都约4h，再到峨眉山40min']},
+  {n:21, name:'稻城亚丁',prov:'四川', lon:100.4,lat:28.5, seg:'西南',  c:'#534AB7', days:'D50-54',alt:'4700m', diff:'高难',
+   tips:['不是登山！是高原徒步景区','高反适应日（第1天不剧烈运动）','仙乃日神山倒影湖（标志打卡）','备红景天、葡萄糖、便携氧气罐']},
+  {n:22, name:'梅里雪山',prov:'云南', lon:98.6, lat:28.5, seg:'西南',  c:'#534AB7', days:'D55-60',alt:'6740m', diff:'中等',
+   tips:['不需要登山经验！观景+徒步','飞来寺等日照金山（靠运气，多留1天）','雨崩村徒步（步行5h或骑马）','包车：稻城→香格里拉→德钦约8h']},
+  {n:23, name:'苍山',    prov:'云南', lon:100.1,lat:25.7, seg:'西南',  c:'#534AB7', days:'D61-64',alt:'4122m', diff:'中等',
+   tips:['19座山峰连绵，夏季杜鹃+云海绝美','玉带云游路横贯线徒步约4h','洗马潭→马龙峰（最高峰4122m）','包车：德钦→大理约5h，大理飞回上海/纽约']},
+];
+
+const edgeMeta = [
+  {i:0,j:1,t:'train'},{i:1,j:2,t:'train'},{i:2,j:3,t:'train'},
+  {i:3,j:4,t:'bus'},{i:4,j:5,t:'train'},{i:5,j:6,t:'bus'},
+  {i:6,j:7,t:'train'},{i:7,j:8,t:'train'},{i:8,j:9,t:'train'},
+  {i:9,j:10,t:'train'},{i:10,j:11,t:'train'},{i:11,j:12,t:'train'},
+  {i:12,j:13,t:'train'},{i:13,j:14,t:'train'},{i:14,j:15,t:'train'},
+  {i:15,j:16,t:'train'},{i:16,j:17,t:'train'},{i:17,j:18,t:'train'},
+  {i:18,j:19,t:'train'},{i:19,j:20,t:'fly'},{i:20,j:21,t:'bus'},
+  {i:21,j:22,t:'bus'},
+];
+
+const tColor={train:'#60a5fa',bus:'#f59e0b',fly:'#D85A30'};
+const tDash ={train:'none',   bus:'none',   fly:'7 3'};
+
+const W=960,H=700;
+const svg=d3.select('#main-svg').attr('viewBox',`0 0 ${W} ${H}`).attr('preserveAspectRatio','xMidYMid meet');
+svg.append('rect').attr('width',W).attr('height',H).attr('fill','#0d1520');
+const zoomG=svg.append('g');
+const proj=d3.geoMercator().center([108,31]).scale(900).translate([W/2,H/2+40]);
+const pathGen=d3.geoPath(proj);
+
+const defs=svg.append('defs');
+['arr-train','arr-bus','arr-fly'].forEach((id,idx)=>{
+  const col=[tColor.train,tColor.bus,tColor.fly][idx];
+  const mk=defs.append('marker').attr('id',id)
+    .attr('viewBox','0 0 10 10').attr('refX',8).attr('refY',5)
+    .attr('markerWidth',5).attr('markerHeight',5).attr('orient','auto-start-reverse');
+  mk.append('path').attr('d','M2 1L8 5L2 9').attr('fill','none')
+    .attr('stroke',col).attr('stroke-width',1.5).attr('stroke-linecap','round').attr('stroke-linejoin','round');
+});
+
+const zoom=d3.zoom().scaleExtent([0.4,14])
+  .on('zoom',e=>{
+    zoomG.attr('transform',e.transform);
+    const k=e.transform.k;
+    zoomG.selectAll('.nlbl').attr('font-size',Math.max(7,Math.min(12,11/k)));
+    zoomG.selectAll('.ncirc').attr('r',Math.max(6,Math.min(14,13/Math.sqrt(k))));
+    zoomG.selectAll('.nnum').attr('font-size',Math.max(6,Math.min(11,10/Math.sqrt(k))));
+    zoomG.selectAll('.edge').attr('stroke-width',Math.max(0.8,2/k));
+    document.getElementById('hint').style.opacity='0';
+  });
+
+d3.select('#main-svg').call(zoom).on('dblclick.zoom',null);
+window.zoomBy=f=>d3.select('#main-svg').transition().duration(300).call(zoom.scaleBy,f);
+window.resetZoom=()=>d3.select('#main-svg').transition().duration(400).call(zoom.transform,d3.zoomIdentity);
+
+d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(world=>{
+  const all=topojson.feature(world,world.objects.countries).features;
+  const china=all.filter(f=>f.id==='156');
+  const nbr=all.filter(f=>['410','392','496','764','418','116','704','050','356','586','004','398','643','762','795','860'].includes(String(f.id)));
+
+  zoomG.selectAll('.nb').data(nbr).join('path').attr('class','nb').attr('d',pathGen)
+    .attr('fill','#1a2030').attr('stroke','rgba(255,255,255,0.08)').attr('stroke-width',0.4);
+  zoomG.selectAll('.cn').data(china).join('path').attr('class','cn').attr('d',pathGen)
+    .attr('fill','#1e2a3a').attr('stroke','rgba(255,255,255,0.2)').attr('stroke-width',0.7);
+
+  const coords=M.map(m=>proj([m.lon,m.lat]));
+
+  edgeMeta.forEach(({i,j,t})=>{
+    const [x1,y1]=coords[i],[x2,y2]=coords[j];
+    const dx=x2-x1,dy=y2-y1,len=Math.sqrt(dx*dx+dy*dy);
+    const nx=-dy/len,ny=dx/len,bend=18;
+    const mx=(x1+x2)/2+nx*bend,my=(y1+y2)/2+ny*bend;
+    const ex1=x1+dx/len*15,ey1=y1+dy/len*15;
+    const ex2=x2-dx/len*15,ey2=y2-dy/len*15;
+    zoomG.append('path').attr('class','edge')
+      .attr('d',`M${ex1},${ey1} Q${mx},${my} ${ex2},${ey2}`)
+      .attr('fill','none').attr('stroke',tColor[t]).attr('stroke-width',2)
+      .attr('stroke-dasharray',tDash[t]).attr('opacity',0.75)
+      .attr('marker-end',`url(#arr-${t})`);
+  });
+
+  M.forEach((m,i)=>{
+    const [cx,cy]=coords[i];
+    const g=zoomG.append('g').attr('transform',`translate(${cx},${cy})`).style('cursor','pointer')
+      .on('mouseover',function(evt){
+        const tip=document.getElementById('tt');
+        tip.innerHTML=`<div class="tt-name">${m.n}. ${m.name}</div><div class="tt-sub">${m.prov} · ${m.alt} · ${m.days}</div><span class="tt-diff" style="background:${diffBg(m.diff)};color:${diffFg(m.diff)}">${m.diff}</span>`;
+        tip.style.display='block';
+        const rect=document.getElementById('main-svg').getBoundingClientRect();
+        let tx=evt.clientX-rect.left+14,ty=evt.clientY-rect.top-14;
+        if(tx+230>rect.width)tx=evt.clientX-rect.left-240;
+        tip.style.left=tx+'px';tip.style.top=ty+'px';
+      })
+      .on('mouseout',()=>document.getElementById('tt').style.display='none')
+      .on('touchstart',function(evt){evt.preventDefault();showDetail(m);},{passive:false})
+      .on('click',()=>showDetail(m));
+
+    g.append('circle').attr('class','ncirc').attr('r',13)
+      .attr('fill',m.c).attr('stroke','rgba(255,255,255,0.3)').attr('stroke-width',1.5);
+    g.append('text').attr('class','nnum')
+      .attr('text-anchor','middle').attr('dominant-baseline','central')
+      .attr('font-size',10).attr('font-weight',700).attr('fill','#fff').text(m.n);
+
+    const lblY=cy<H-45?22:-20;
+    const anchor=cx>W-90?'end':cx<70?'start':'middle';
+    g.append('text').attr('class','nlbl')
+      .attr('text-anchor',anchor).attr('y',lblY).attr('font-size',10).attr('font-weight',600)
+      .attr('fill','rgba(255,255,255,0.85)').text(m.name);
+  });
+}).catch(()=>{
+  zoomG.append('text').attr('x',W/2).attr('y',H/2).attr('text-anchor','middle')
+    .attr('font-size',14).attr('fill','rgba(255,255,255,0.5)').text('地图加载失败，请检查网络连接');
+});
+
+function diffBg(d){return{轻松:'#064e3b',中等:'#451a03',高难:'#450a0a'}[d]||'#222'}
+function diffFg(d){return{轻松:'#6ee7b7',中等:'#fcd34d',高难:'#fca5a5'}[d]||'#fff'}
+
+function showDetail(m){
+  const d=document.getElementById('detail');
+  d.innerHTML=`
+    <div id="back-btn" onclick="document.getElementById('detail').style.display='none'">← 返回地图</div>
+    <div class="d-header">
+      <div class="d-icon" style="background:${m.c}">${m.n}</div>
+      <div>
+        <div class="d-title">${m.name}</div>
+        <div class="d-sub">${m.prov} · ${m.seg} · ${m.days}</div>
+      </div>
+    </div>
+    <div class="d-grid">
+      <div class="d-card"><div class="d-card-label">海拔</div><div class="d-card-val">${m.alt}</div></div>
+      <div class="d-card"><div class="d-card-label">行程</div><div class="d-card-val">${m.days}</div></div>
+      <div class="d-card" style="background:${diffBg(m.diff)}"><div class="d-card-label" style="color:${diffFg(m.diff)};opacity:0.7">难度</div><div class="d-card-val" style="color:${diffFg(m.diff)}">${m.diff}</div></div>
+    </div>
+    <div class="d-section-title">攻略要点</div>
+    ${m.tips.map(t=>`<div class="d-tip">${t}</div>`).join('')}
+  `;
+  d.style.display='block';
+  d.scrollTop=0;
+}
+</script>
+</body>
+</html>
