@@ -106,7 +106,7 @@
 
   <div id="title-badge">
     <h1>一人一山</h1>
-    <p>23座名山 · 2025暑假</p>
+    <p>23座名山 · 2026暑假</p>
   </div>
 
   <div id="zoom-btns">
@@ -276,11 +276,21 @@ d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json').then(w
       .attr('text-anchor','middle').attr('dominant-baseline','central')
       .attr('font-size',10).attr('font-weight',700).attr('fill','#fff').text(m.n);
 
-    const lblY=cy<H-45?22:-20;
-    const anchor=cx>W-90?'end':cx<70?'start':'middle';
+    const offsets={
+      1:[0,22,'middle'],2:[20,0,'start'],3:[20,0,'start'],
+      4:[0,-22,'middle'],5:[-20,0,'end'],6:[-20,0,'end'],
+      7:[20,8,'start'],8:[20,0,'start'],9:[-20,0,'end'],
+      10:[20,-10,'start'],11:[20,10,'start'],12:[-20,-10,'end'],
+      13:[20,0,'start'],14:[20,-10,'start'],15:[20,8,'start'],
+      16:[20,0,'start'],17:[0,22,'middle'],18:[-20,0,'end'],
+      19:[0,22,'middle'],20:[0,-22,'middle'],21:[20,0,'start'],
+      22:[-20,0,'end'],23:[0,22,'middle']
+    };
+    const [ldx,ldy,anchor]=offsets[m.n]||[0,22,'middle'];
     g.append('text').attr('class','nlbl')
-      .attr('text-anchor',anchor).attr('y',lblY).attr('font-size',10).attr('font-weight',600)
-      .attr('fill','rgba(255,255,255,0.85)').text(m.name);
+      .attr('text-anchor',anchor).attr('x',ldx).attr('y',ldy)
+      .attr('font-size',10).attr('font-weight',600)
+      .attr('fill','rgba(255,255,255,0.88)').text(m.name);
   });
 }).catch(()=>{
   zoomG.append('text').attr('x',W/2).attr('y',H/2).attr('text-anchor','middle')
